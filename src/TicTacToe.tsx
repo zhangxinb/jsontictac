@@ -115,7 +115,7 @@ function TicTacToe(props : any)
 	  if (view === "game") {
 		return <Game key={view} sizex={3} sizey={3} config={config} username={user} />;
 	  } else if (view === "lobby") {
-		return <Lobby username={user} onInvite={handleInvite} />;
+		return <Lobby username={user} />;
 	  } else {
 		return null;
 	  }

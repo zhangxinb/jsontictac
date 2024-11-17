@@ -7,7 +7,7 @@ function jsonResponse($success, $message, $mid, $email = null) {
     ];
 
     if ($email) {
-        $response["email"] = $email;
+        $response["user"] = $email;
     }
 
     echo json_encode($response);

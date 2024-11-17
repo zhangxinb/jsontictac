@@ -1,7 +1,8 @@
 //https://github.com/uiwjs/react-login-page/tree/main/pages/page8
 import React, { useState } from 'react';
 import LoginPage, { Username, Password, TitleSignup, TitleLogin, Submit, Title } from '@react-login-page/page8';
-import Game from './Game';
+//import Game from './Game';
+import Lobby from './lobby';
 
 const styles = { height: 690 };
 
@@ -32,8 +33,8 @@ const Login = (props : any) => {
       if (data.success) {
         alert(data.message);
         setLoggedInUser(data.email);
-        console.log("Logged in user email:", data.email);
-        setView("game");
+        //console.log("Logged in user email:", data.email);
+        setView("lobby");
       } else {
         alert(data.message);
       }
@@ -131,7 +132,8 @@ const Login = (props : any) => {
           <Submit panel="signup" keyname="signup-reset">Reset</Submit>
         </LoginPage>
       ) : (
-        <Game sizex={3} sizey={3} config={{}} username={loggedInUser} />
+        //<Game sizex={3} sizey={3} config={{}} username={loggedInUser} />
+        <Lobby username={loggedInUser} />
       )}
     </div>
   )

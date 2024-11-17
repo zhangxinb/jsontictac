@@ -44,7 +44,7 @@ header("Access-Control-Allow-Credentials: true");
 
 */
 session_start();
-require "dbsession.php";
+require_once "dbsession.php";
 require "jsonhelper.php";
 $dcdb = getDbSes();
 if ($dcdb)
@@ -69,21 +69,38 @@ function login($jsonar, $dcdb) {
         $user = $selectuser->fetch();
         $hash = $user["hash"];
         $uid = $user["uid"];
-		$email = $user["email"];
+        $email = $user["email"];
 
         if (password_verify($pwd, $hash)) {
             $_SESSION["uid"] = $uid;
-			$_SESSION["email"] = $email;
-			if (!isset($_SESSION['loggedInUsers'])) {
+            $_SESSION["email"] = $email;
+
+            if (!isset($_SESSION['loggedInUsers']) || !is_array($_SESSION['loggedInUsers'])) {
                 $_SESSION['loggedInUsers'] = [];
             }
-            if (!in_array($email, $_SESSION['loggedInUsers'])) {
-                $_SESSION['loggedInUsers'][] = $email;
+
+            $userExists = false;
+            foreach ($_SESSION['loggedInUsers'] as $loggedInUser) {
+                if (is_array($loggedInUser) && $loggedInUser['uid'] === $uid) {
+                    $userExists = true;
+                    break;
+                }
             }
-            if (!isset($_SESSION['invitations'])) {
-                $_SESSION['invitations'] = [];
+            if (!$userExists) {
+                $_SESSION['loggedInUsers'][] = ['uid' => $uid, 'email' => $email];
             }
-            jsonResponse(true, "Login successful", 2, $email);
+
+			$_SESSION['lastDbUpdateTime'] = getCurrentTimeMillis();
+
+			$lastseen = time();
+            $gid = null;
+            $insertSession = $dcdb->prepare("INSERT INTO session (uid, lastseen, gid) VALUES (:uid, :lastseen, :gid) ON DUPLICATE KEY UPDATE lastseen = :lastseen, gid = :gid;");
+            $insertSession->bindValue(":uid", $uid);
+            $insertSession->bindValue(":lastseen", $lastseen);
+            $insertSession->bindValue(":gid", $gid);
+            $insertSession->execute();
+
+            jsonResponse(true, "Login successful", 2, ['uid' => $uid, 'email' => $email]);
         } else {
             $_SESSION["uid"] = "";
             jsonResponse(false, "Incorrect password", 3);
@@ -93,4 +110,7 @@ function login($jsonar, $dcdb) {
     }
 }
 
+function getCurrentTimeMillis() {
+    return substr(microtime(true) * 1000, 0, 13);
+}
 ?>
