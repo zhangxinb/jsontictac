@@ -18,7 +18,15 @@ session_start();
 require_once "sessioncheck.php";
 require_once "dbsession.php";
 
-
+$inactive = 900; // 15mins
+if (isset($_SESSION['lastActivityTime']) && (time() - $_SESSION['lastActivityTime']) > $inactive) {
+    session_unset();
+    session_destroy();
+    echo json_encode(["success" => false, "message" => "Session expired"]);
+    exit();
+} else {
+    $_SESSION['lastActivityTime'] = time();
+}
 
 //If login.php has not stored the UID into the session, then "nothing to be seen here": the user
 //is instantly thrown out of the system. That can also happen if you cannot get CORS and cookies

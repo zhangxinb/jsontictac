@@ -91,8 +91,9 @@ function login($jsonar, $dcdb) {
             }
 
 			$_SESSION['lastDbUpdateTime'] = getCurrentTimeMillis();
+            $_SESSION['lastActivityTime'] = time();
 
-			$lastseen = time();
+			$lastseen = getCurrentTimeMillis();
             $gid = null;
             $insertSession = $dcdb->prepare("INSERT INTO session (uid, lastseen, gid) VALUES (:uid, :lastseen, :gid) ON DUPLICATE KEY UPDATE lastseen = :lastseen, gid = :gid;");
             $insertSession->bindValue(":uid", $uid);
