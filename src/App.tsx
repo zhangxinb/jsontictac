@@ -36,15 +36,11 @@ function App() {
 		.catch((e) => showError(e));
 	}, []);
   
-	const handleLoginSuccess = (user: any) => {
-        setUser(user);
-        setView("game");
-    };
 
     if (view === "init") {
         return <CircularProgress />;
     } else if (view === "login") {
-        return <Login onLoginSuccess={handleLoginSuccess} config={config} />;
+        return <Login />;
     } else if (view === "game") {
         return <TicTacToe config={config} user={user} />;
     } else {

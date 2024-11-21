@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import KeepAlive from './KeepAlive';
-import Navbar from './Navbar';
+import { Container, Typography, List, ListItem, ListItemText, Button, CircularProgress, ListItemIcon, Paper } from '@mui/material';
+import { useSpring, animated } from '@react-spring/web';
+import PersonIcon from '@mui/icons-material/Person';
+import GroupIcon from '@mui/icons-material/Group';
 
 interface LobbyProps {
-  username: string;
+  onStartGame: (opponent: User) => void;
+  users: User[];
 }
 
 interface User {
@@ -13,52 +17,69 @@ interface User {
   gid: number | null;
 }
 
-const Lobby: React.FC<LobbyProps> = ({ username }) => {
-  const [users, setUsers] = useState<User[]>([]);
+const Lobby: React.FC<LobbyProps> = ({ onStartGame, users }) => {
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    fetch('http://localhost:12380/users.php', {
-      method: 'GET',
-      credentials: 'include'
-    })
-      .then(response => response.json())
-      .then(data => setUsers(data.users))
-      .catch(error => console.error('Error fetching users:', error));
-  }, []);
+    setLoading(false);
+  }, [users]);
 
-  const handleLogout = () => {
-    fetch('http://localhost:12380//logout.php', {
-      method: 'POST',
-      credentials: 'include'
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'success') {
-          alert('You have logged out.');
-          window.location.href = '/login';
-        } else {
-          alert('Logout failed.');
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
-  };
+  const fade = useSpring({ opacity: loading ? 0 : 1 });
 
   return (
-    <div>
-      <Navbar onLogout={handleLogout} username={username} />
-      <h3>Logged-in Users</h3>
-      <ul>
-        {users.map((user, index) => (
-          <li key={index}>
-          {user.email}
-        </li>
-        ))}
-      </ul>
+    <Container>
+      {/* 标题部分 */}
+      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+        <GroupIcon sx={{ marginRight: 1 }} />
+        Logged-in Users
+      </Typography>
+  
+      {/* 加载状态或用户列表 */}
+      {loading ? (
+        <CircularProgress />
+      ) : (
+        <animated.div style={fade}>
+          <Paper elevation={3} sx={{ padding: 2, borderRadius: 2 }}>
+            <List>
+              {users.map((user, index) => (
+                <ListItem
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingY: 1,
+                  }}
+                >
+                  {/* 用户信息部分 */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemIcon>
+                      <PersonIcon />
+                    </ListItemIcon>
+                    <ListItemText primary={user.email} />
+                  </div>
+  
+                  {/* 按钮部分 */}
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => onStartGame(user)}
+                  >
+                    Start Game
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        </animated.div>
+      )}
+  
+      {/* 保活部分 */}
       <KeepAlive />
-    </div>
+    </Container>
   );
+  
 };
 
 export default Lobby;

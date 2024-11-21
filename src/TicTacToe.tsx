@@ -1,7 +1,10 @@
 import React from 'react';
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect, useRef } from 'react';
 import Game from './Game';
 import Lobby from './lobby';
+import Navbar from './Navbar';
+import { handleWebSocketMessage } from './webSocketHandlers';
+import { Container } from '@mui/material';
 
 
 /*
@@ -10,7 +13,7 @@ import Lobby from './lobby';
 		  -A TOP BAR/SIDE BAR should be constantly visible and display whether the user has
 		   logged in. The Top/side bar can also have application navigation
 		  (login,logout,etc.)in it.
-                  -the remaining area of the screen should then be dedicated for "stuff" we build
+				  -the remaining area of the screen should then be dedicated for "stuff" we build
 		   later, like:
 			-a login screen (which you can build already now)
 			-a registration screen (you can already do this too!)
@@ -53,72 +56,127 @@ import Lobby from './lobby';
 */
 
 
-let viewSetter : Dispatch<SetStateAction<any>>;
-let userSetter : Dispatch<SetStateAction<any>>;
+let viewSetter: Dispatch<SetStateAction<any>>;
+let userSetter: Dispatch<SetStateAction<any>>;
 
-function confirmSession(j : any)
-{
+function confirmSession(j: any) {
 
-	if (j.success)
-	{
+	if (j.success) {
 		alert("Whooops... if you got this message in less than 15 minutes of work something went wrong with the exercise :-). So, essentially: you did it, but you should still check the logs and make the application prettier. This message from TicTacToe.tsx, confirmSession-function.");
 		viewSetter("game");
 	}
-	else 
-	{
+	else {
 		alert("Whooooops... something went wrong, you now need to dig up the .jsx and .php files and start checking what it might have been. This message from TicTacToe.tsx, confirmSession-function.");
 		viewSetter("login");
 	}
 }
 
-function showError(e : any)
-{
+function showError(e: any) {
 	alert("Whoops... communication with the server did not work out... or the JSON has some weirdness in it... Check out the console.");
 	console.log(e);
 	viewSetter("login");
 }
 
-function getSession(event : any, m: string, p: string, c : any)
-{
-	let obu = { email : m, pass : p};
- 	fetch(c.serviceroot+c.login, { method : "POST", mode : "cors", credentials : "include", 
-                                             headers: {'Content-Type': 'text/plain'}, 
-                                             body : JSON.stringify(obu) }).
-	then( r => r.json() ).then( j => confirmSession(j) ).catch( e => showError(e));
+function getSession(event: any, m: string, p: string, c: any) {
+	let obu = { email: m, pass: p };
+	fetch(c.serviceroot + c.login, {
+		method: "POST", mode: "cors", credentials: "include",
+		headers: { 'Content-Type': 'text/plain' },
+		body: JSON.stringify(obu)
+	}).
+		then(r => r.json()).then(j => confirmSession(j)).catch(e => showError(e));
 }
 
-function TicTacToe(props : any) 
-{
-	let config = props.config;
-	let [view, setView] = React.useState(props.view);
-	let [user, setUser] = React.useState(props.user);
-	const viewSetter = setView;
-	const userSetter = setUser;
-	const handleInvite = (invitee: string) => {
-		// Send invite to the server
-		fetch('/invite.php', {
-		  method: 'POST',
-		  headers: { 'Content-Type': 'application/json' },
-		  body: JSON.stringify({ inviter: user, invitee })
-		})
-		  .then(response => response.json())
-		  .then(data => {
-			if (data.status === 'success') {
-			  alert(`Invitation sent to ${invitee}`);
-			} else {
-			  alert(`Failed to send invitation to ${invitee}`);
+interface User {
+	uid: string;
+	email: string;
+	lastseen: number;
+	gid: number | null;
+}
+
+function TicTacToe(props: any) {
+	const config = props.config;
+	const [view, setView] = useState('lobby');
+	const [user, setUser] = useState<User | null>(props.user);
+	const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+	const [opponent, setOpponent] = useState<User | null>(null);
+	const [gameId, setGameId] = useState<string | null>(null);
+	const [board, setBoard] = useState<(string | null)[]>(Array(config.sizex * config.sizey).fill(null));
+	const [users, setUsers] = useState<User[]>([]);
+	const ws = useRef<WebSocket | null>(null);
+	const isWsOpen = useRef(false);
+
+	useEffect(() => {
+		if (ws.current) return;
+
+		ws.current = new WebSocket('ws://localhost:8080');
+
+		ws.current.onopen = () => {
+			isWsOpen.current = true; // 标记连接成功
+			if (user) {
+				ws.current?.send(
+					JSON.stringify({
+						type: 'login',
+						uid: user.uid,
+						email: user.email,
+					})
+				);
 			}
-		  })
-		  .catch(error => console.error('Error sending invitation:', error));
-	  };
-	
-	  if (view === "game") {
-		return <Game key={view} sizex={3} sizey={3} config={config} username={user} />;
-	  } else if (view === "lobby") {
-		return <Lobby username={user} />;
-	  } else {
-		return null;
-	  }
-	}
+		};
+
+		ws.current.onmessage = (event) => handleWebSocketMessage(event, setUser, setUsers, setGameId, setOpponent, setView, setBoard);
+
+		ws.current.onerror = (error) => {
+			console.error('WebSocket error:', error);
+		};
+
+		ws.current.onclose = () => {
+			console.log('WebSocket closed');
+			isWsOpen.current = false;
+		};
+
+		// 清理 WebSocket
+		return () => {
+			if (ws.current?.readyState === WebSocket.OPEN) {
+				ws.current.close();
+			}
+			ws.current = null;
+			isWsOpen.current = false;
+		};
+	}, [user]);
+
+	const sendWebSocketMessage = (message: any) => {
+		if (ws.current?.readyState === WebSocket.OPEN) {
+			ws.current.send(JSON.stringify(message));
+		} else {
+			console.warn('WebSocket is not ready. Message not sent:', message);
+		}
+	};
+
+	const handleStartGame = (opponent: User) => {
+		ws.current?.send(JSON.stringify({
+			type: 'startGame',
+			uidx: user!.uid,
+			uido: opponent.uid,
+			sizex: config.sizex,
+			sizey: config.sizey,
+			email: user?.email
+		}));
+	};
+
+	const handleLogout = () => {
+		ws.current?.send(JSON.stringify({ type: 'logout', uid: user?.uid }));
+		setUser(null);
+		window.location.href = '/login';
+	};
+
+	return (
+		<Container>
+			<Navbar onLogout={handleLogout} username={user!.email} />
+			{view === 'lobby' && <Lobby onStartGame={handleStartGame} users={users} />}
+			{view === 'game' && opponent && <Game sizex={config.sizex} sizey={config.sizey} config={config} username={user!.email} opponent={opponent.email} board={board} />}
+		</Container>
+	);
+}
 
 export default TicTacToe;

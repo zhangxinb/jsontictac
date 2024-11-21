@@ -132,7 +132,6 @@ function Game(props: any) {
 
   return (
     <div>
-      <Navbar onLogout={handleLogout} username={props.username} />
       <canvas ref={cref} width={props.sizex * 200} height={props.sizey * 200} onClick={handleCellClick} />
       <Chat username={props.username} />
       <audio autoPlay loop>

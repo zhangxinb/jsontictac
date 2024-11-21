@@ -9,15 +9,18 @@ session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = $_SESSION['email'];
+    $uid = $_SESSION['uid'];
 
     if (isset($_SESSION['loggedInUsers'])) {
-        $_SESSION['loggedInUsers'] = array_filter($_SESSION['loggedInUsers'], function($user) use ($email) {
-            return $user !== $email;
+        $_SESSION['loggedInUsers'] = array_filter($_SESSION['loggedInUsers'], function($user) use ($uid) {
+            return $user['uid'] !== $uid;
         });
     }
-    session_unset();
-    session_destroy();
+    unset($_SESSION['uid']);
+    unset($_SESSION['email']);
+    unset($_SESSION['lastActivityTime']);
+    unset($_SESSION['lastDbUpdateTime']);
+    unset($_SESSION['lastCallTime']);
 
     echo json_encode(["status" => "success", "message" => "Logout successful"]);
 } else {
