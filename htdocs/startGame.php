@@ -24,7 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insertGame->bindValue(":sizex", $sizex);
         $insertGame->bindValue(":sizey", $sizey);
         if ($insertGame->execute()) {
-            echo json_encode(["success" => true]);
+            $gameId = $dcdb->lastInsertId();
+            header('Content-Type: application/json');
+            echo json_encode([
+                "success" => true,
+                "gameId" => $gameId
+            ]);
         } else {
             echo json_encode(["success" => false, "message" => "Failed to insert game"]);
         }

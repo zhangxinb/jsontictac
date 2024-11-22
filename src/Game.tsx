@@ -1,6 +1,21 @@
-import React, { useState } from 'react';
-import Navbar from './Navbar';
+import React, { useState, useRef, useEffect } from 'react';
 import Chat from './Chat';
+
+interface GameProps {
+  ws: WebSocket;
+  gameId: string;
+  user: User;
+  opponent: User;
+  board: (string | null)[];
+  sizex: number;
+  sizey: number;
+  setBoard: React.Dispatch<React.SetStateAction<(string | null)[]>>;
+}
+
+interface User {
+  uid: string;
+  email: string;
+}
 
 function showError(e : any)
 {
@@ -82,63 +97,88 @@ function animateCell(context: CanvasRenderingContext2D, x: number, y: number, si
   }, 16);
 }
 
-function Game(props: any) {
-  const cref = React.useRef<HTMLCanvasElement>(null);
-  const [currentType, setCurrentType] = useState('X');
-
-  const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = cref.current;
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    const squareSize = canvas.width / props.sizex;
-    const x = Math.floor(e.nativeEvent.offsetX / squareSize);
-    const y = Math.floor(e.nativeEvent.offsetY / squareSize);
-
-    animateCell(context, x, y, squareSize, currentType);
-
-    setCurrentType(currentType === 'X' ? 'O' : 'X');
-  };
-
-  React.useEffect(() => {
-    if (cref.current) {
-      const context = cref.current.getContext('2d');
-      if (context) {
-        drawGrid(context, props.sizex, props.sizey, cref.current.width, cref.current.height);
+const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, sizey, setBoard }) => {
+    const cref = useRef<HTMLCanvasElement>(null);
+    const [currentType, setCurrentType] = useState('X'); 
+    const [drawnCells, setDrawnCells] = useState<Set<number>>(new Set());
+    
+  
+    const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = cref.current;
+      if (!canvas) return;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      const squareSize = canvas.width / sizex;
+      const x = Math.floor(e.nativeEvent.offsetX / squareSize);
+      const y = Math.floor(e.nativeEvent.offsetY / squareSize);
+  
+      // Animate cell locally
+      animateCell(context, x, y, squareSize, currentType);
+  
+      // Send move to the server via WebSocket
+      if (ws) {
+        ws.send(
+          JSON.stringify({
+            type: 'makeMove',
+            gameId,
+            x,
+            y,
+            player: currentType,
+          })
+        );
       }
-    } else {
-      alert("Canvas not yet drawn or something else failed.");
-    }
-  }, [props.sizex, props.sizey]);
-
-  const handleLogout = () => {
-    fetch('http://localhost:12380//logout.php', {
-      method: 'POST',
-      credentials: 'include'
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'success') {
-          alert('You have logged out.');
-          window.location.href = '/login';
-        } else {
-          alert('Logout failed.');
+  
+      // Toggle between X and O
+      setCurrentType(currentType === 'X' ? 'O' : 'X');
+    };
+  
+    React.useEffect(() => {
+      if (cref.current) {
+        const context = cref.current.getContext('2d');
+        if (context) {
+          drawGrid(context, sizex, sizey, cref.current.width, cref.current.height);
         }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
-  };
+      } else {
+        alert("Canvas not yet drawn or something else failed.");
+      }
+    }, [sizex, sizey]);
 
-  return (
-    <div>
-      <canvas ref={cref} width={props.sizex * 200} height={props.sizey * 200} onClick={handleCellClick} />
-      <Chat username={props.username} />
-      <audio autoPlay loop>
-      <source src="http://localhost:12380/contra.mp3" type="audio/mpeg" />
-      </audio>
-    </div>
-  );
-}
+    useEffect(() => {
+      const canvas = cref.current;
+      if (!canvas) return;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+    
+      const cellSize = canvas.width / sizex;
+    
+      // 遍历棋盘并绘制未绘制的棋子
+      board.forEach((cell, index) => {
+        if (!cell || drawnCells.has(index)) return; // 忽略空单元格和已绘制单元格
+    
+        const x = index % sizex;
+        const y = Math.floor(index / sizex);
+    
+        if (cell === 'X') {
+          drawPartialX(context, x, y, cellSize, 100);
+        } else if (cell === 'O') {
+          drawPartialO(context, x, y, cellSize, 100);
+        }
+    
+        // 将当前单元格标记为已绘制
+        setDrawnCells((prev) => new Set(prev).add(index));
+      });
+    }, [board, drawnCells, opponent.uid, sizex, user.uid]);
+    
+    
+    return (
+      <div>
+        <h2>Game with {opponent.email}</h2>
+        <canvas ref={cref} width={sizex * 200} height={sizey * 200} onClick={handleCellClick} />
+        <audio autoPlay loop>
+          <source src="http://localhost:12380/contra.mp3" type="audio/mpeg" />
+        </audio>
+      </div>
+    );
+  }
 
 export default Game;

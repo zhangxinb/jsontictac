@@ -162,6 +162,7 @@ function TicTacToe(props: any) {
 			sizey: config.sizey,
 			email: user?.email
 		}));
+		setView('game');
 	};
 
 	const handleLogout = () => {
@@ -174,7 +175,18 @@ function TicTacToe(props: any) {
 		<Container>
 			<Navbar onLogout={handleLogout} username={user!.email} />
 			{view === 'lobby' && <Lobby onStartGame={handleStartGame} users={users} />}
-			{view === 'game' && opponent && <Game sizex={config.sizex} sizey={config.sizey} config={config} username={user!.email} opponent={opponent.email} board={board} />}
+			{view === 'game' && opponent && (
+				<Game
+				ws={ws.current!}
+				gameId={gameId!}
+				user={user!}
+				opponent={opponent}
+				board={board}
+				sizex={config.sizex}
+				sizey={config.sizey}
+				setBoard={setBoard}
+				/>
+			)}
 		</Container>
 	);
 }
