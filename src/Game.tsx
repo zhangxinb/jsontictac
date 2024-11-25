@@ -105,6 +105,38 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
     const [drawnCells, setDrawnCells] = useState<Set<number>>(new Set());
     const [playerX, setUidX] = useState<string | null>(null);
     const [playerO, setUidO] = useState<string | null>(null);
+        
+    //handleMessage
+    useEffect(() => {
+      if (!ws) {
+        console.warn("WebSocket instance is not available.");
+        return;
+      }
+    
+      const handleMessage = (event: MessageEvent) => {
+        const data = JSON.parse(event.data);
+        console.log("Message received:", data);
+    
+        if (data.type === 'gameStarted') {
+          setUidX(data.uidx);
+          console.log ('set uidx', playerX);
+          setUidO(data.uido);
+        } else if (data.type === 'updateBoard') {
+          setBoard([...data.board]);
+          setCurrentPlayer(data.currentPlayer);
+        } else if (data.type === 'startGame') {
+          setUidX(data.playerX);
+          console.log ('set playerX', playerX);
+          setUidO(data.playerO);
+        }
+      };
+    
+      ws.addEventListener('message', handleMessage);
+    
+      return () => {
+        ws.removeEventListener('message', handleMessage);
+      };
+    }, [ws, playerX, setBoard]);
     
   
     const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -185,36 +217,7 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
         setDrawnCells((prev) => new Set(prev).add(index));
       });
     }, [board, drawnCells, sizex, sizey]);
-    
-    //handleMessage
-    useEffect(() => {
-      if (!ws) {
-        console.warn("WebSocket instance is not available.");
-        return;
-      }
-    
-      const handleMessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        console.log("Message received:", data);
-    
-        if (data.type === 'gameStarted') {
-          setUidX(data.uidx);
-          setUidO(data.uido);
-        } else if (data.type === 'updateBoard') {
-          setBoard([...data.board]);
-          setCurrentPlayer(data.currentPlayer);
-        } else if (data.type === 'startGame') {
-          setUidX(data.playerX);
-          setUidO(data.playerO);
-        }
-      };
-    
-      ws.addEventListener('message', handleMessage);
-    
-      return () => {
-        ws.removeEventListener('message', handleMessage);
-      };
-    }, [ws, setBoard]);
+
       
         
     return (

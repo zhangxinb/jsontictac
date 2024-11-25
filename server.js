@@ -102,7 +102,6 @@ wss.on('connection', (ws) => {
 
       case 'makeMove': {
         const { gameId, x, y, player } = data; // 解构客户端发来的数据
-        console.log(`Received move for gameId: ${gameId}`);
         const game = games[gameId];
 
         console.log(`Received move for gameId: ${gameId}`);

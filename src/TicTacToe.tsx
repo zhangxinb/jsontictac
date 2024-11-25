@@ -3,6 +3,7 @@ import { Dispatch, SetStateAction, useState, useEffect, useRef } from 'react';
 import Game from './Game';
 import Lobby from './lobby';
 import Navbar from './Navbar';
+import { handleWebSocketMessage } from './webSocketHandlers';
 import { Container } from '@mui/material';
 
 
