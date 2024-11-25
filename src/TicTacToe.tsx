@@ -3,7 +3,6 @@ import { Dispatch, SetStateAction, useState, useEffect, useRef } from 'react';
 import Game from './Game';
 import Lobby from './lobby';
 import Navbar from './Navbar';
-import { handleWebSocketMessage } from './webSocketHandlers';
 import { Container } from '@mui/material';
 
 
@@ -158,6 +157,8 @@ function TicTacToe(props: any) {
 			type: 'startGame',
 			uidx: user!.uid,
 			uido: opponent.uid,
+			playerX: user!.uid,
+			playerO: opponent.uid,
 			sizex: config.sizex,
 			sizey: config.sizey,
 			email: user?.email
@@ -185,6 +186,8 @@ function TicTacToe(props: any) {
 				sizex={config.sizex}
 				sizey={config.sizey}
 				setBoard={setBoard}
+				uidx={user!.uid}
+				uido={opponent.uid}
 				/>
 			)}
 		</Container>

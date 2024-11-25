@@ -10,6 +10,8 @@ interface GameProps {
   sizex: number;
   sizey: number;
   setBoard: React.Dispatch<React.SetStateAction<(string | null)[]>>;
+  uidx: string;
+  uido: string;
 }
 
 interface User {
@@ -97,10 +99,12 @@ function animateCell(context: CanvasRenderingContext2D, x: number, y: number, si
   }, 16);
 }
 
-const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, sizey, setBoard }) => {
+const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, sizey, setBoard, uidx, uido }) => {
     const cref = useRef<HTMLCanvasElement>(null);
-    const [currentType, setCurrentType] = useState('X'); 
+    const [currentPlayer, setCurrentPlayer] = useState<string | null>(uidx); 
     const [drawnCells, setDrawnCells] = useState<Set<number>>(new Set());
+    const [playerX, setUidX] = useState<string | null>(null);
+    const [playerO, setUidO] = useState<string | null>(null);
     
   
     const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -108,14 +112,27 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
       if (!canvas) return;
       const context = canvas.getContext('2d');
       if (!context) return;
+    
       const squareSize = canvas.width / sizex;
       const x = Math.floor(e.nativeEvent.offsetX / squareSize);
       const y = Math.floor(e.nativeEvent.offsetY / squareSize);
-  
-      // Animate cell locally
-      animateCell(context, x, y, squareSize, currentType);
-  
-      // Send move to the server via WebSocket
+    
+      const animationType = user.uid === playerX ? 'X' : 'O';
+      console.log (user.uid);
+      console.log (playerX);
+      console.log (animationType);
+
+      const index = y * sizex + x;
+      if (board[index] !== null) {
+        alert('Cell already occupied!');
+        return;
+      }
+
+      animateCell(context, x, y, squareSize, animationType);
+      const updatedBoard = [...board];
+      updatedBoard[index] = animationType;
+      setBoard(updatedBoard);
+    
       if (ws) {
         ws.send(
           JSON.stringify({
@@ -123,16 +140,17 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
             gameId,
             x,
             y,
-            player: currentType,
+            player: animationType,
+            uid: user.uid,
+            playerX: uidx,
+            playerO: uido,
           })
         );
       }
-  
-      // Toggle between X and O
-      setCurrentType(currentType === 'X' ? 'O' : 'X');
     };
-  
-    React.useEffect(() => {
+    
+    //drawGrid
+    useEffect(() => {
       if (cref.current) {
         const context = cref.current.getContext('2d');
         if (context) {
@@ -143,6 +161,7 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
       }
     }, [sizex, sizey]);
 
+    //syncDraw
     useEffect(() => {
       const canvas = cref.current;
       if (!canvas) return;
@@ -151,9 +170,8 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
     
       const cellSize = canvas.width / sizex;
     
-      // 遍历棋盘并绘制未绘制的棋子
       board.forEach((cell, index) => {
-        if (!cell || drawnCells.has(index)) return; // 忽略空单元格和已绘制单元格
+        if (!cell || drawnCells.has(index)) return;
     
         const x = index % sizex;
         const y = Math.floor(index / sizex);
@@ -163,13 +181,42 @@ const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, s
         } else if (cell === 'O') {
           drawPartialO(context, x, y, cellSize, 100);
         }
-    
-        // 将当前单元格标记为已绘制
+
         setDrawnCells((prev) => new Set(prev).add(index));
       });
-    }, [board, drawnCells, opponent.uid, sizex, user.uid]);
+    }, [board, drawnCells, sizex, sizey]);
     
+    //handleMessage
+    useEffect(() => {
+      if (!ws) {
+        console.warn("WebSocket instance is not available.");
+        return;
+      }
     
+      const handleMessage = (event: MessageEvent) => {
+        const data = JSON.parse(event.data);
+        console.log("Message received:", data);
+    
+        if (data.type === 'gameStarted') {
+          setUidX(data.uidx);
+          setUidO(data.uido);
+        } else if (data.type === 'updateBoard') {
+          setBoard([...data.board]);
+          setCurrentPlayer(data.currentPlayer);
+        } else if (data.type === 'startGame') {
+          setUidX(data.playerX);
+          setUidO(data.playerO);
+        }
+      };
+    
+      ws.addEventListener('message', handleMessage);
+    
+      return () => {
+        ws.removeEventListener('message', handleMessage);
+      };
+    }, [ws, setBoard]);
+      
+        
     return (
       <div>
         <h2>Game with {opponent.email}</h2>

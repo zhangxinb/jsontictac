@@ -38,7 +38,7 @@ wss.on('connection', (ws) => {
 
       case 'startGame': {
         // 创建游戏，调用 PHP API 写入数据库
-        const { uidx, uido, sizex, sizey } = data;
+        const { uidx, uido, sizex, sizey, playerX, playerO } = data;
         try {
           const response = await fetch('http://localhost:12380/startGame.php', {
             method: 'POST',
@@ -50,15 +50,16 @@ wss.on('connection', (ws) => {
           if (result.success) {
             const gameId = result.gameId;
             console.log(gameId);
-            
 
-            // 初始化游戏状态
             games[gameId] = {
               uidx,
               uido,
               sizex,
               sizey,
+              playerX,
+              playerO,
               board: Array(sizex * sizey).fill(null),
+              currentPlayer: uidx,
             };
 
             // 通知两名玩家游戏已开始
@@ -68,6 +69,8 @@ wss.on('connection', (ws) => {
                   JSON.stringify({
                     type: 'gameStarted',
                     gameId,
+                    playerX: uidx,
+                    playerO: uido,
                     opponent: {
                       uid: uid === uidx ? uido : uidx,
                       email: users[uid === uidx ? uido : uidx].email,
@@ -100,20 +103,16 @@ wss.on('connection', (ws) => {
       case 'makeMove': {
         const { gameId, x, y, player } = data; // 解构客户端发来的数据
         console.log(`Received move for gameId: ${gameId}`);
-
-        if (!gameId) {
-          console.log('No gameId found in the message!');
-          ws.send(JSON.stringify({ type: 'error', message: 'GameId is required' }));
-          return;
-        }
-
         const game = games[gameId];
+
         console.log(`Received move for gameId: ${gameId}`);
       
         if (!game) {
           ws.send(JSON.stringify({ type: 'error', message: 'Game not found' }));
           return;
         }
+
+
       
         const index = y * game.sizex + x; // 根据 x, y 计算在一维数组中的索引
       
@@ -125,13 +124,14 @@ wss.on('connection', (ws) => {
       
         // 更新棋盘
         game.board[index] = player;
+        //game.currentPlayer = game.currentPlayer === game.uidx ? game.uidx : game.uido;
       
         [game.uidx, game.uido].forEach(playerId => {
           if (users[playerId]) {
             users[playerId].ws.send(JSON.stringify({
               type: 'updateBoard',
               gameId,
-              currentPlayer: player,
+              //currentPlayer: game.currentPlayer,
               board: game.board,
             }));
           }
