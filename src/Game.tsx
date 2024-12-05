@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Chat from './Chat';
+import React, { useState, useRef, useEffect, useContext } from 'react';
+import { useSession } from './SessionContext';
 
 interface GameProps {
-  ws: WebSocket;
+  //ws: WebSocket;
   gameId: string;
   user: User;
   opponent: User;
@@ -10,13 +10,15 @@ interface GameProps {
   sizex: number;
   sizey: number;
   setBoard: React.Dispatch<React.SetStateAction<(string | null)[]>>;
-  uidx: string;
-  uido: string;
+  uidx: number;
+  uido: number;
 }
 
 interface User {
-  uid: string;
+  uid: number;
   email: string;
+  lastseen: number;
+  gid: number | null;
 }
 
 function showError(e : any)
@@ -99,44 +101,44 @@ function animateCell(context: CanvasRenderingContext2D, x: number, y: number, si
   }, 16);
 }
 
-const Game: React.FC<GameProps> = ({ ws, gameId, user, opponent, board, sizex, sizey, setBoard, uidx, uido }) => {
+const Game: React.FC<GameProps> = ({ gameId, user, opponent, board, sizex, sizey, setBoard, uidx, uido }) => {
     const cref = useRef<HTMLCanvasElement>(null);
-    const [currentPlayer, setCurrentPlayer] = useState<string | null>(uidx); 
+    const [currentPlayer, setCurrentPlayer] = useState<number | null>(uidx); 
     const [drawnCells, setDrawnCells] = useState<Set<number>>(new Set());
-    const [playerX, setUidX] = useState<string | null>(null);
-    const [playerO, setUidO] = useState<string | null>(null);
+    const [playerX, setUidX] = useState<number | null>(null);
+    const [playerO, setUidO] = useState<number | null>(null);
         
-    //handleMessage
     useEffect(() => {
       if (!ws) {
         console.warn("WebSocket instance is not available.");
         return;
       }
-    
+
       const handleMessage = (event: MessageEvent) => {
         const data = JSON.parse(event.data);
-        console.log("Message received:", data);
-    
-        if (data.type === 'gameStarted') {
-          setUidX(data.uidx);
-          console.log ('set uidx', playerX);
-          setUidO(data.uido);
-        } else if (data.type === 'updateBoard') {
-          setBoard([...data.board]);
-          setCurrentPlayer(data.currentPlayer);
-        } else if (data.type === 'startGame') {
-          setUidX(data.playerX);
-          console.log ('set playerX', playerX);
-          setUidO(data.playerO);
-        }
-      };
+      console.log("Message received:", data);
+
+      if (data.type === 'gameStarted') {
+        setUidX(data.playerX);
+        console.log('set uidx', data.playerX);
+        setUidO(data.playerO);
+      } else if (data.type === 'updateBoard') {
+        setBoard([...data.board]);
+        setCurrentPlayer(data.currentPlayer);
+      } else if (data.type === 'startGame') {
+        setUidX(data.playerX);
+        console.log('set playerX', data.playerX);
+        setUidO(data.playerO);
+      }
+    };
     
       ws.addEventListener('message', handleMessage);
-    
+
       return () => {
         ws.removeEventListener('message', handleMessage);
       };
-    }, [ws, playerX, setBoard]);
+    }, [ws, setBoard]); 
+    
     
   
     const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

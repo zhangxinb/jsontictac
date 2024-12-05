@@ -44,7 +44,6 @@ if (($uid = sessionUid()) != null) {
         $_SESSION['lastDbUpdateTime'] = $currentTime;
     }
 
-    // 每 10 秒更新一次数据库中的时间
     if (($currentTime - $_SESSION['lastDbUpdateTime']) >= 10000) {
         $dcdb = getDbSes();
         if ($dcdb) {

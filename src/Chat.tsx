@@ -9,32 +9,7 @@ const Chat: React.FC<ChatProps> = ({ username }) => {
   const [input, setInput] = useState('');
   const ws = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    ws.current = new WebSocket('ws://localhost:8080');
-
-    ws.current.onopen = () => {
-      console.log('WebSocket connection opened');
-    };
-
-    ws.current.onmessage = (event) => {
-      const newMessage = event.data;
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-    };
-
-    ws.current.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    ws.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
-    };
-  }, []);
+  
 
   const sendMessage = () => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN && input.trim()) {

@@ -24,7 +24,7 @@ function sessionUid()
 	}
 	else
 	{
-		$uid = $_SESSION["uid"];
+		$uid = $_SESSION["uid"];		
 		return $uid;
 	}
 }

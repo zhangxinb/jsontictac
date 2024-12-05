@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import LoginPage, { Username, Password, TitleSignup, TitleLogin, Submit, Title } from '@react-login-page/page8';
 import TicTacToe from './TicTacToe';
-
 
 const styles = { height: 690 };
 
 interface User {
-  uid: string;
+  uid: number;
   email: string;
+  lastseen: number;
+  gid: number | null;
 }
 
 const Login: React.FC = (props: any) => {
@@ -15,63 +16,8 @@ const Login: React.FC = (props: any) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [view, setView] = useState<'login' | 'lobby'>('login');
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [user, setUser] = useState<User | null>(props.user);
-  const ws = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    if (view === 'lobby') {
-      if (!ws.current) {
-        ws.current = new WebSocket('ws://localhost:8080');
-      }
-
-      ws.current.onopen = () => {
-        console.log('WebSocket connected');
-        if (loggedInUser) {
-          ws.current?.send(
-            JSON.stringify({
-              type: 'login',
-              uid: loggedInUser.uid,
-              email: loggedInUser.email,
-            })
-          );
-        }
-      };
-
-      ws.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        switch (data.type) {
-            case 'loginSuccess':
-				setUser((prevUser) => (prevUser?.uid === data.currentUser.uid ? prevUser : data.currentUser));
-				setUsers(data.users);
-				localStorage.setItem('user', JSON.stringify(data.currentUser));
-				break;
-          case 'gameStarted':
-            console.log('Game started with', data.opponent);
-            break;
-          default:
-            console.warn('Unhandled WebSocket message type:', data.type);
-        }
-      };
-
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        // Optionally handle reconnect logic here
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-
-      return () => {
-        ws.current?.close();
-        ws.current = null;
-      };
-    }
-  }, [view, loggedInUser]);
-
-  const getSession = async (event: React.FormEvent) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     const requestBody = {
       email,
@@ -93,8 +39,10 @@ const Login: React.FC = (props: any) => {
         const user = {
           uid: data.user.uid,
           email: data.user.email,
+          lastseen: data.user.lastseen,
+          gid: null,
         };
-        setLoggedInUser(user);
+
         localStorage.setItem('user', JSON.stringify(user));
         setView('lobby');
       } else {
@@ -159,7 +107,7 @@ const Login: React.FC = (props: any) => {
             name="userPassword"
             onChange={(e) => setPassword(e.target.value)}
           />
-          <Submit keyname="submit" onClick={getSession}>
+          <Submit keyname="submit" onClick={handleLogin}>
             Login
           </Submit>
 
@@ -194,7 +142,7 @@ const Login: React.FC = (props: any) => {
           </Submit>
         </LoginPage>
       ) : (
-        <TicTacToe user={loggedInUser} config={{ sizex: 3, sizey: 3 }} users={users} ws={ws.current} />
+        <TicTacToe config={{ sizex: 3, sizey: 3 }} />
       )}
     </div>
   );

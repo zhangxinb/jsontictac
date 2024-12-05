@@ -1,11 +1,9 @@
 import React from 'react';
-import { Dispatch, SetStateAction, useState, useEffect, useRef } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect, useRef, useContext } from 'react';
 import Game from './Game';
 import Lobby from './lobby';
 import Navbar from './Navbar';
-import { handleWebSocketMessage } from './webSocketHandlers';
 import { Container } from '@mui/material';
-
 
 /*
    BIG EXERCISE:  Implement JSX code and logic into this file so that this component displays a
@@ -54,16 +52,13 @@ import { Container } from '@mui/material';
    If you create a good Login/Register now, you can utilize it in the project course!!!
 
 */
-
-
 let viewSetter: Dispatch<SetStateAction<any>>;
-let userSetter: Dispatch<SetStateAction<any>>;
 
 function confirmSession(j: any) {
 
 	if (j.success) {
 		alert("Whooops... if you got this message in less than 15 minutes of work something went wrong with the exercise :-). So, essentially: you did it, but you should still check the logs and make the application prettier. This message from TicTacToe.tsx, confirmSession-function.");
-		viewSetter("game");
+		viewSetter("lobby");
 	}
 	else {
 		alert("Whooooops... something went wrong, you now need to dig up the .jsx and .php files and start checking what it might have been. This message from TicTacToe.tsx, confirmSession-function.");
@@ -88,7 +83,7 @@ function getSession(event: any, m: string, p: string, c: any) {
 }
 
 interface User {
-	uid: string;
+	uid: number;
 	email: string;
 	lastseen: number;
 	gid: number | null;
@@ -96,99 +91,116 @@ interface User {
 
 function TicTacToe(props: any) {
 	const config = props.config;
-	const [view, setView] = useState('lobby');
-	const [user, setUser] = useState<User | null>(props.user);
-	const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
-	const [opponent, setOpponent] = useState<User | null>(null);
+	const [currentUser, setCurrentUser] = useState<User | null>(null);
+	const [view, setView] = useState<string>('login');
 	const [gameId, setGameId] = useState<string | null>(null);
-	const [board, setBoard] = useState<(string | null)[]>(Array(config.sizex * config.sizey).fill(null));
-	const [users, setUsers] = useState<User[]>([]);
-	const ws = useRef<WebSocket | null>(null);
-	const isWsOpen = useRef(false);
+	const [opponent, setOpponent] = useState<User | null>(null);
+	const [board, setBoard] = useState<(string | null)[]>(
+		Array(config.sizex * config.sizey).fill(null)
+	  );
 
-	useEffect(() => {
-		if (ws.current) return;
-
-		ws.current = new WebSocket('ws://localhost:8080');
-
-		ws.current.onopen = () => {
-			isWsOpen.current = true; // 标记连接成功
-			if (user) {
-				ws.current?.send(
-					JSON.stringify({
-						type: 'login',
-						uid: user.uid,
-						email: user.email,
-					})
-				);
-			}
-		};
-
-		ws.current.onmessage = (event) => handleWebSocketMessage(event, setUser, setUsers, setGameId, setOpponent, setView, setBoard);
-
-		ws.current.onerror = (error) => {
-			console.error('WebSocket error:', error);
-		};
-
-		ws.current.onclose = () => {
-			console.log('WebSocket closed');
-			isWsOpen.current = false;
-		};
-
-		// 清理 WebSocket
-		return () => {
-			if (ws.current?.readyState === WebSocket.OPEN) {
-				ws.current.close();
-			}
-			ws.current = null;
-			isWsOpen.current = false;
-		};
-	}, [user]);
-
-	const sendWebSocketMessage = (message: any) => {
-		if (ws.current?.readyState === WebSocket.OPEN) {
-			ws.current.send(JSON.stringify(message));
-		} else {
-			console.warn('WebSocket is not ready. Message not sent:', message);
+	const handleStartGame = async (opponent: User) => {
+		try {
+		  const response = await fetch('http://localhost:12380/startGame.php', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+			  uidx: currentUser!.uid,
+			  uido: opponent.uid,
+			  playerX: currentUser!.uid,
+			  playerO: opponent.uid,
+			  sizex: 3,
+			  sizey: 3,
+			  email: currentUser?.email,
+			}),
+		  });
+	
+		  const data = await response.json();
+		  if (data.success) {
+			setGameId(data.gameId);
+			setOpponent(opponent);
+			setView("game");
+			setBoard(Array(3 * 3).fill(null)); // Initialize the board
+		  } else {
+			alert(data.message);
+		  }
+		} catch (error) {
+		  console.error('Error starting game:', error);
+		  alert('Failed to start game. Please try again.');
 		}
-	};
+	  };
 
-	const handleStartGame = (opponent: User) => {
-		ws.current?.send(JSON.stringify({
-			type: 'startGame',
-			uidx: user!.uid,
-			uido: opponent.uid,
-			playerX: user!.uid,
-			playerO: opponent.uid,
-			sizex: config.sizex,
-			sizey: config.sizey,
-			email: user?.email
-		}));
-		setView('game');
-	};
+	  const handleLogout = async () => {
+		try {
+			const response = await fetch('http://localhost:12380/logout.php', {
+			  method: 'POST',
+			  headers: { 'Content-Type': 'application/json' },
+			  credentials: 'include',
+			  body: JSON.stringify({
+				uid: currentUser?.uid
+			  })
+			});
+	
+		  const data = await response.json();
+		  if (data.status === 'success') {
+			setCurrentUser(null);
+			sessionStorage.removeItem('user');
+			window.location.href = '/login';
+		  } else {
+			alert('Failed to log out. Please try again.');
+		  }
+		} catch (error) {
+		  console.error('Error logging out:', error);
+		  alert('Failed to log out. Please try again.');
+		}
+	  };
 
-	const handleLogout = () => {
-		ws.current?.send(JSON.stringify({ type: 'logout', uid: user?.uid }));
-		setUser(null);
-		window.location.href = '/login';
-	};
+	  useEffect(() => {
+		const checkSession = async () => {
+		  try {
+			const response = await fetch('http://localhost:12380/session.php', {
+			  method: 'GET',
+			  credentials: 'include',
+			});
+			
+			const data = await response.json();
+			if (data.uid) {
+			  setCurrentUser({
+				uid: data.uid,
+				email: data.email,
+				lastseen: data.lastseen,
+				gid: data.gid,
+			  });
+			  setGameId(data.gameId);
+			  setView('lobby');
+			}
+		  } catch (error) {
+			console.error('Error:', error);
+			setView('login');
+		  }
+		};
+	
+		checkSession();
+	  }, []);
+
+
 
 	return (
 		<Container>
-			<Navbar onLogout={handleLogout} username={user!.email} />
-			{view === 'lobby' && <Lobby onStartGame={handleStartGame} users={users} />}
+			<Navbar onLogout={handleLogout} username={currentUser?.email} />
+			{view === 'lobby' && <Lobby onStartGame={handleStartGame} />}
 			{view === 'game' && opponent && (
+				
 				<Game
-				ws={ws.current!}
-				gameId={gameId!}
-				user={user!}
-				opponent={opponent}
-				board={board}
-				sizex={config.sizex}
-				sizey={config.sizey}
-				setBoard={setBoard}
-				uidx={user!.uid}
-				uido={opponent.uid}
+				  gameId={gameId!}
+				  user={currentUser!}
+				  opponent={opponent}
+				  board={board}
+				  sizex={config.sizex}
+				  sizey={config.sizey}
+				  setBoard={setBoard}
+				  uidx={currentUser!.uid} // 传递 uidx
+				  uido={opponent.uid} // 传递 uido
 				/>
 			)}
 		</Container>

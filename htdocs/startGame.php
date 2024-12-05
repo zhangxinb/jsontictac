@@ -25,10 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insertGame->bindValue(":sizey", $sizey);
         if ($insertGame->execute()) {
             $gameId = $dcdb->lastInsertId();
+
+            $_SESSION["gameId"] = $gameId;
+            $_SESSION["uidx"] = $uidx;
+            $_SESSION["uido"] = $uido;
+            
             header('Content-Type: application/json');
             echo json_encode([
                 "success" => true,
-                "gameId" => $gameId
+                "gameId" => $gameId,
+                "uidx" => $uidx,
+                "uido" => $uido
             ]);
         } else {
             echo json_encode(["success" => false, "message" => "Failed to insert game"]);

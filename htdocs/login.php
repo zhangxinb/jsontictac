@@ -61,53 +61,88 @@ if ($dcdb)
 }
 
 function login($jsonar, $dcdb) {
-    $selectuser = $dcdb->prepare("SELECT uid, hash, email FROM user WHERE email=:email;");
-    $selectuser->bindValue(":email", $jsonar["email"]);
-    $pwd = $jsonar["pass"];
+    try {
+        $selectuser = $dcdb->prepare("SELECT uid, hash, email FROM user WHERE email = :email;");
+        $selectuser->bindValue(":email", $jsonar["email"]);
 
-    if ($selectuser->execute() && $selectuser->rowCount() > 0) {
-        $user = $selectuser->fetch();
-        $hash = $user["hash"];
-        $uid = $user["uid"];
-        $email = $user["email"];
-
-        if (password_verify($pwd, $hash)) {
-            $_SESSION["uid"] = $uid;
-            $_SESSION["email"] = $email;
-
-            if (!isset($_SESSION['loggedInUsers']) || !is_array($_SESSION['loggedInUsers'])) {
-                $_SESSION['loggedInUsers'] = [];
-            }
-
-            $userExists = false;
-            foreach ($_SESSION['loggedInUsers'] as $loggedInUser) {
-                if (is_array($loggedInUser) && $loggedInUser['uid'] === $uid) {
-                    $userExists = true;
-                    break;
-                }
-            }
-            if (!$userExists) {
-                $_SESSION['loggedInUsers'][] = ['uid' => $uid, 'email' => $email];
-            }
-
-			$_SESSION['lastDbUpdateTime'] = getCurrentTimeMillis();
-            $_SESSION['lastActivityTime'] = time();
-
-			$lastseen = getCurrentTimeMillis();
-            $gid = null;
-            $insertSession = $dcdb->prepare("INSERT INTO session (uid, lastseen, gid) VALUES (:uid, :lastseen, :gid) ON DUPLICATE KEY UPDATE lastseen = :lastseen, gid = :gid;");
-            $insertSession->bindValue(":uid", $uid);
-            $insertSession->bindValue(":lastseen", $lastseen);
-            $insertSession->bindValue(":gid", $gid);
-            $insertSession->execute();
-
-            jsonResponse(true, "Login successful", 2, ['uid' => $uid, 'email' => $email]);
-        } else {
-            $_SESSION["uid"] = "";
-            jsonResponse(false, "Incorrect password", 3);
+        if (!$selectuser->execute() || $selectuser->rowCount() === 0) {
+            jsonResponse(false, "User does not exist", 4);
+            return;
         }
-    } else {
-        jsonResponse(false, "User does not exist", 4);
+
+        $user = $selectuser->fetch();
+        if (!password_verify($jsonar["pass"], $user["hash"])) {
+            clearSession();
+            jsonResponse(false, "Incorrect password", 3);
+            return;
+        }
+
+        $_SESSION["uid"] = $user["uid"];
+        $_SESSION["email"] = $user["email"];
+        $_SESSION["lastActivityTime"] = time();
+
+        addLoggedInUser($user["uid"], $user["email"]);
+
+        updateSessionTable($dcdb, $user["uid"]);
+
+        jsonResponse(true, "Login successful", 2, [
+            'uid' => $user["uid"],
+            'email' => $user["email"],
+            'lastActivityTime' => $_SESSION["lastActivityTime"]
+        ]);
+
+    } catch (Exception $e) {
+        error_log("Error in login function: " . $e->getMessage());
+        jsonResponse(false, "An unexpected error occurred during login", 99);
+    }
+}
+
+function clearSession() {
+    $_SESSION["uid"] = null;
+    $_SESSION["email"] = null;
+}
+
+function addLoggedInUser($uid, $email) {
+    if (!isset($_SESSION['loggedInUsers']) || !is_array($_SESSION['loggedInUsers'])) {
+        $_SESSION['loggedInUsers'] = [];
+    }
+
+    foreach ($_SESSION['loggedInUsers'] as $loggedInUser) {
+        if ($loggedInUser['uid'] === $uid) {
+            return;
+        }
+    }
+
+    $_SESSION['loggedInUsers'][] = [
+        'uid' => $uid,
+        'email' => $email
+    ];
+}
+
+function updateSessionTable($dcdb, $uid) {
+    try {
+        $lastseen = getCurrentTimeMillis();
+        $gid = null;
+
+        $tenMinutesAgo = $lastseen - 10 * 60 * 1000;
+        $deleteOldSessions = $dcdb->prepare("
+            DELETE FROM session
+            WHERE lastseen < :tenMinutesAgo
+        ");
+        $deleteOldSessions->bindValue(":tenMinutesAgo", $tenMinutesAgo);
+        $deleteOldSessions->execute();
+
+        $insertSession = $dcdb->prepare("
+            INSERT INTO session (uid, lastseen, gid)
+            VALUES (:uid, :lastseen, :gid)
+            ON DUPLICATE KEY UPDATE lastseen = :lastseen, gid = :gid;
+        ");
+        $insertSession->bindValue(":uid", $uid);
+        $insertSession->bindValue(":lastseen", $lastseen);
+        $insertSession->bindValue(":gid", $gid);
+        $insertSession->execute();
+    } catch (Exception $e) {
+        error_log("Error updating session table: " . $e->getMessage());
     }
 }
 

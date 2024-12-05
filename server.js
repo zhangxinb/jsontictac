@@ -6,7 +6,7 @@ let users = {}; // 在线用户
 let games = {}; // 游戏状态
 
 wss.on('connection', (ws) => {
-  let currentUserId = null; // 当前用户 ID
+  let currentUserId = null; 
 
   ws.on('message', async (message) => {
     const data = JSON.parse(message);
@@ -14,11 +14,10 @@ wss.on('connection', (ws) => {
 
     switch (data.type) {
       case 'login': {
-        // 用户登录
+
         users[data.uid] = { ws, email: data.email };
         currentUserId = data.uid;
 
-        // 发送登录成功信息
         ws.send(
           JSON.stringify({
             type: 'loginSuccess',
@@ -30,14 +29,13 @@ wss.on('connection', (ws) => {
             })),
           })
         );
-
-        // 广播更新用户列表
+        console.log('Sending logged in user:', data.email);
         broadcastUpdateUsers();
         break;
       }
 
       case 'startGame': {
-        // 创建游戏，调用 PHP API 写入数据库
+
         const { uidx, uido, sizex, sizey, playerX, playerO } = data;
         try {
           const response = await fetch('http://localhost:12380/startGame.php', {
@@ -62,7 +60,6 @@ wss.on('connection', (ws) => {
               currentPlayer: uidx,
             };
 
-            // 通知两名玩家游戏已开始
             [uidx, uido].forEach((uid) => {
               if (users[uid] && users[uid].ws.readyState === WebSocket.OPEN) {
                 users[uid].ws.send(
@@ -77,10 +74,10 @@ wss.on('connection', (ws) => {
                     },
                   })
                 );
+                console.log('Game started:', gameId);
               }
             });
           } else {
-            // PHP 返回失败时，通知发起者
             ws.send(
               JSON.stringify({
                 type: 'error',
@@ -101,7 +98,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'makeMove': {
-        const { gameId, x, y, player } = data; // 解构客户端发来的数据
+        const { gameId, x, y, player } = data;
         const game = games[gameId];
 
         console.log(`Received move for gameId: ${gameId}`);
@@ -113,24 +110,22 @@ wss.on('connection', (ws) => {
 
 
       
-        const index = y * game.sizex + x; // 根据 x, y 计算在一维数组中的索引
+        const index = y * game.sizex + x;
       
-        // 检查该位置是否有效
         if (index < 0 || index >= game.board.length || game.board[index] !== null) {
           ws.send(JSON.stringify({ type: 'error', message: 'Invalid move' }));
           return;
         }
       
-        // 更新棋盘
         game.board[index] = player;
-        //game.currentPlayer = game.currentPlayer === game.uidx ? game.uidx : game.uido;
+        game.currentPlayer = game.currentPlayer === game.uidx ? game.uidx : game.uido;
       
         [game.uidx, game.uido].forEach(playerId => {
           if (users[playerId]) {
             users[playerId].ws.send(JSON.stringify({
               type: 'updateBoard',
               gameId,
-              //currentPlayer: game.currentPlayer,
+              currentPlayer: game.currentPlayer,
               board: game.board,
             }));
           }
@@ -153,7 +148,6 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    // 连接关闭时，删除用户
     if (currentUserId && users[currentUserId]) {
       delete users[currentUserId];
       broadcastUpdateUsers();
@@ -161,7 +155,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// 广播给指定玩家或全体
+
 function broadcast(data, recipients = null) {
   if (recipients) {
     recipients.forEach((uid) => {
@@ -178,7 +172,6 @@ function broadcast(data, recipients = null) {
   }
 }
 
-// 广播更新用户列表
 function broadcastUpdateUsers() {
   const userList = Object.entries(users).map(([uid, user]) => ({
     uid,
