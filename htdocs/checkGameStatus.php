@@ -18,10 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    // 统一转换为整数类型
     $gameId = (int)$gameId;
     
-    // 检查游戏是否存在于 session 中
     if (!isset($_SESSION['games']) || !isset($_SESSION['games'][$gameId])) {
         echo json_encode([
             'success' => false,

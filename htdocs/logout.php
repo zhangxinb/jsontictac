@@ -1,16 +1,13 @@
 <?php
-// 设置错误报告
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// CORS 头部设置
 header("Access-Control-Allow-Origin: http://localhost:3000");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=UTF-8");
 
-// 处理 OPTIONS 请求
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -41,16 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             ));
         }
-
-        // 清除session数据
         unset($_SESSION['uid']);
         unset($_SESSION['email']);
         unset($_SESSION['lastActivityTime']);
         unset($_SESSION['gameId']);
         unset($_SESSION['games']);
         
-        // 确保响应被正确发送
-        ob_clean(); // 清除任何输出缓冲
+
+        ob_clean(); 
         echo json_encode([
             "status" => "success",
             "message" => "Logout successful",

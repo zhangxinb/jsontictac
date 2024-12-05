@@ -11,7 +11,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout, username }) => {
     <AppBar position="static">
       <Toolbar>
         <Typography variant="h6" style={{ flexGrow: 1 }}>
-          Welcome to the Game App
+          Welcome to the TicTacToe
         </Typography>
         <Typography variant="body1" style={{ marginRight: '20px' }}>
           Logged in as: {username}

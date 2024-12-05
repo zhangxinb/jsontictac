@@ -11,17 +11,14 @@ require_once "dbsession.php";
 $dcdb = getDbSes();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // 获取当前在线用户列表
     getUserList($dcdb);
 } 
  else {
     jsonResponse(false, "Unsupported method", 405);
 }
 
-// 获取当前在线用户列表
 function getUserList($dcdb) {
     try {
-        // 查询数据库中的所有在线用户
         $query = $dcdb->prepare("
             SELECT u.uid, u.email, s.lastseen, s.gid
             FROM session s

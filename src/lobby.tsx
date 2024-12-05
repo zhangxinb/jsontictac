@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, List, ListItem, ListItemText, Button, CircularProgress, ListItemIcon, Paper } from '@mui/material';
 import { useSpring, animated } from '@react-spring/web';
 import PersonIcon from '@mui/icons-material/Person';
@@ -46,13 +46,11 @@ const Lobby: React.FC<LobbyProps> = ({ onStartGame }) => {
 
   return (
     <Container>
-      {/* 标题部分 */}
       <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
         <GroupIcon sx={{ marginRight: 1 }} />
         Logged-in Users
       </Typography>
   
-      {/* 加载状态或用户列表 */}
       {loading ? (
         <CircularProgress />
       ) : (
@@ -69,15 +67,12 @@ const Lobby: React.FC<LobbyProps> = ({ onStartGame }) => {
                     paddingY: 1,
                   }}
                 >
-                  {/* 用户信息部分 */}
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemIcon>
                       <PersonIcon />
                     </ListItemIcon>
                     <ListItemText primary={user.email} />
                   </div>
-  
-                  {/* 按钮部分 */}
                   <Button
                     variant="contained"
                     color="primary"

@@ -197,7 +197,6 @@ function TicTacToe(props: any) {
 			  const latestGameId = Math.max(...gameIds.map(Number));
 			  const latestGame = data.games[latestGameId];
 	  
-			  // 检查是否为新的活跃游戏且当前用户是对手方
 			  if (
 				latestGame &&
 				latestGame.status === 'active' &&
@@ -218,13 +217,13 @@ function TicTacToe(props: any) {
 			  }
 			}
 		  } catch (error) {
-			console.error('检查新游戏失败:', error);
+			console.error('Error:', error);
 		  }
 		};
 	  
 		if (view === 'lobby') {
 		  const interval = setInterval(checkNewGame, 2000);
-		  return () => clearInterval(interval); // 清除定时器，避免内存泄漏
+		  return () => clearInterval(interval); 
 		}
 	  }, [view, config.sizex, config.sizey]);
 
@@ -242,8 +241,8 @@ function TicTacToe(props: any) {
 				  sizex={config.sizex}
 				  sizey={config.sizey}
 				  setBoard={setBoard}
-				  uidx={currentUser!.uid} // 传递 uidx
-				  uido={opponent.uid} // 传递 uido
+				  uidx={currentUser!.uid}
+				  uido={opponent.uid}
 				/>
 			)}
 		</Container>

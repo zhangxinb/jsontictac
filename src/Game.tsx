@@ -107,7 +107,6 @@ const Game: React.FC<GameProps> = ({
   const [drawnCells, setDrawnCells] = useState(new Set<number>());
   const [currentTurn, setCurrentTurn] = useState<number>(uidx);
   
-  // 轮询获取游戏状态
   useEffect(() => {
     const pollGameState = async () => {
       try {
@@ -147,7 +146,6 @@ const Game: React.FC<GameProps> = ({
     return () => clearInterval(interval);
   }, [gameId, sizex, sizey, drawnCells, setBoard]);
 
-  // 处理移动
   const handleMove = async (x: number, y: number) => {
     if (currentTurn !== user.uid) return;
     
