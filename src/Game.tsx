@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { useSession } from './SessionContext';
 
 interface GameProps {
   //ws: WebSocket;
@@ -101,136 +100,141 @@ function animateCell(context: CanvasRenderingContext2D, x: number, y: number, si
   }, 16);
 }
 
-const Game: React.FC<GameProps> = ({ gameId, user, opponent, board, sizex, sizey, setBoard, uidx, uido }) => {
-    const cref = useRef<HTMLCanvasElement>(null);
-    const [currentPlayer, setCurrentPlayer] = useState<number | null>(uidx); 
-    const [drawnCells, setDrawnCells] = useState<Set<number>>(new Set());
-    const [playerX, setUidX] = useState<number | null>(null);
-    const [playerO, setUidO] = useState<number | null>(null);
-        
-    useEffect(() => {
-      if (!ws) {
-        console.warn("WebSocket instance is not available.");
-        return;
-      }
-
-      const handleMessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-      console.log("Message received:", data);
-
-      if (data.type === 'gameStarted') {
-        setUidX(data.playerX);
-        console.log('set uidx', data.playerX);
-        setUidO(data.playerO);
-      } else if (data.type === 'updateBoard') {
-        setBoard([...data.board]);
-        setCurrentPlayer(data.currentPlayer);
-      } else if (data.type === 'startGame') {
-        setUidX(data.playerX);
-        console.log('set playerX', data.playerX);
-        setUidO(data.playerO);
-      }
-    };
-    
-      ws.addEventListener('message', handleMessage);
-
-      return () => {
-        ws.removeEventListener('message', handleMessage);
-      };
-    }, [ws, setBoard]); 
-    
-    
+const Game: React.FC<GameProps> = ({
+  gameId, user, opponent, board, sizex, sizey, setBoard, uidx, uido 
+}) => {
+  const cref = useRef<HTMLCanvasElement>(null);
+  const [drawnCells, setDrawnCells] = useState(new Set<number>());
+  const [currentTurn, setCurrentTurn] = useState<number>(uidx);
   
-    const handleCellClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = cref.current;
-      if (!canvas) return;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-    
-      const squareSize = canvas.width / sizex;
-      const x = Math.floor(e.nativeEvent.offsetX / squareSize);
-      const y = Math.floor(e.nativeEvent.offsetY / squareSize);
-    
-      const animationType = user.uid === playerX ? 'X' : 'O';
-      console.log (user.uid);
-      console.log (playerX);
-      console.log (animationType);
-
-      const index = y * sizex + x;
-      if (board[index] !== null) {
-        alert('Cell already occupied!');
-        return;
-      }
-
-      animateCell(context, x, y, squareSize, animationType);
-      const updatedBoard = [...board];
-      updatedBoard[index] = animationType;
-      setBoard(updatedBoard);
-    
-      if (ws) {
-        ws.send(
-          JSON.stringify({
-            type: 'makeMove',
-            gameId,
-            x,
-            y,
-            player: animationType,
-            uid: user.uid,
-            playerX: uidx,
-            playerO: uido,
-          })
-        );
+  // 轮询获取游戏状态
+  useEffect(() => {
+    const pollGameState = async () => {
+      try {
+        const response = await fetch(`http://localhost:12380/checkGameStatus.php?gameId=${gameId}`, {
+          credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          setBoard(data.data.board);
+          setCurrentTurn(data.data.currentTurn);
+          
+          const canvas = cref.current;
+          if (!canvas) return;
+          const context = canvas.getContext('2d');
+          if (!context) return;
+          
+          const cellSize = canvas.width / sizex;
+          
+          data.data.board.forEach((cell: string | null, index: number) => {
+            if (!cell || drawnCells.has(index)) return;
+            
+            const x = index % sizex;
+            const y = Math.floor(index / sizex);
+            
+            animateCell(context, x, y, cellSize, cell);
+            
+            setDrawnCells(prev => new Set(prev).add(index));
+          });
+        }
+      } catch (error) {
+        console.error('Error:', error);
       }
     };
-    
-    //drawGrid
-    useEffect(() => {
-      if (cref.current) {
-        const context = cref.current.getContext('2d');
-        if (context) {
-          drawGrid(context, sizex, sizey, cref.current.width, cref.current.height);
-        }
-      } else {
-        alert("Canvas not yet drawn or something else failed.");
-      }
-    }, [sizex, sizey]);
+  
+    const interval = setInterval(pollGameState, 1000);
+    return () => clearInterval(interval);
+  }, [gameId, sizex, sizey, drawnCells, setBoard]);
 
-    //syncDraw
-    useEffect(() => {
-      const canvas = cref.current;
-      if (!canvas) return;
-      const context = canvas.getContext('2d');
-      if (!context) return;
+  // 处理移动
+  const handleMove = async (x: number, y: number) => {
+    if (currentTurn !== user.uid) return;
     
-      const cellSize = canvas.width / sizex;
-    
-      board.forEach((cell, index) => {
-        if (!cell || drawnCells.has(index)) return;
-    
-        const x = index % sizex;
-        const y = Math.floor(index / sizex);
-    
-        if (cell === 'X') {
-          drawPartialX(context, x, y, cellSize, 100);
-        } else if (cell === 'O') {
-          drawPartialO(context, x, y, cellSize, 100);
-        }
-
-        setDrawnCells((prev) => new Set(prev).add(index));
+    try {
+      const response = await fetch('http://localhost:12380/move.php', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId,
+          x,
+          y,
+          player: user.uid
+        })
       });
-    }, [board, drawnCells, sizex, sizey]);
-
       
-        
-    return (
-      <div>
-        <h2>Game with {opponent.email}</h2>
-        <canvas ref={cref} width={sizex * 200} height={sizey * 200} onClick={handleCellClick} />
-        <audio autoPlay loop>
-          <source src="http://localhost:12380/contra.mp3" type="audio/mpeg" />
-        </audio>
-      </div>
-    );
-  }
+      const data = await response.json();
+      if (data.success) {
+        setBoard(data.board);
+        setCurrentTurn(data.nextTurn);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleCellClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = cref.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - rect.left) / (canvas.width / sizex));
+    const y = Math.floor((event.clientY - rect.top) / (canvas.height / sizey));
+    
+    if (x >= 0 && x < sizex && y >= 0 && y < sizey) {
+      handleMove(x, y);
+    }
+  };
+
+  useEffect(() => {
+    if (cref.current) {
+      const context = cref.current.getContext('2d');
+      if (context) {
+        drawGrid(context, sizex, sizey, cref.current.width, cref.current.height);
+      }
+    }
+  }, [sizex, sizey]);
+
+  useEffect(() => {
+    const canvas = cref.current;
+    if (!canvas) return;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+  
+    const cellSize = canvas.width / sizex;
+  
+    board.forEach((cell, index) => {
+      if (!cell || drawnCells.has(index)) return;
+  
+      const x = index % sizex;
+      const y = Math.floor(index / sizex);
+  
+      if (cell === 'X') {
+        drawPartialX(context, x, y, cellSize, 100);
+      } else if (cell === 'O') {
+        drawPartialO(context, x, y, cellSize, 100);
+      }
+
+      setDrawnCells((prev) => new Set(prev).add(index));
+    });
+  }, [board, drawnCells, sizex, sizey]);
+
+  return (
+    <div>
+      <h2>Game with {opponent.email}</h2>
+      <p>Current Turn: {currentTurn === user.uid ? 'Your Turn' : "Opponent's Turn"}</p>
+      <canvas 
+        ref={cref} 
+        width={sizex * 200} 
+        height={sizey * 200} 
+        onClick={handleCellClick} 
+      />
+      <audio autoPlay loop>
+        <source src="http://localhost:12380/contra.mp3" type="audio/mpeg" />
+      </audio>
+    </div>
+  );
+};
 
 export default Game;

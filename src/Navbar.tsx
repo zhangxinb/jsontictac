@@ -3,7 +3,7 @@ import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 
 interface NavbarProps {
   onLogout: () => void;
-  username: string;
+  username: string | undefined;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onLogout, username }) => {

@@ -47,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($_SESSION['email']);
         unset($_SESSION['lastActivityTime']);
         unset($_SESSION['gameId']);
+        unset($_SESSION['games']);
         
         // 确保响应被正确发送
         ob_clean(); // 清除任何输出缓冲

@@ -104,6 +104,7 @@ function TicTacToe(props: any) {
 		  const response = await fetch('http://localhost:12380/startGame.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
+			credentials: 'include',
 			body: JSON.stringify({
 			  uidx: currentUser!.uid,
 			  uido: opponent.uid,
@@ -183,7 +184,49 @@ function TicTacToe(props: any) {
 		checkSession();
 	  }, []);
 
-
+	  useEffect(() => {
+		const checkNewGame = async () => {
+		  try {
+			const response = await fetch('http://localhost:12380/session.php', {
+			  credentials: 'include',
+			});
+			const data = await response.json();
+	  
+			if (data.games) {
+			  const gameIds = Object.keys(data.games).filter((id) => data.games[id] !== null);
+			  const latestGameId = Math.max(...gameIds.map(Number));
+			  const latestGame = data.games[latestGameId];
+	  
+			  // 检查是否为新的活跃游戏且当前用户是对手方
+			  if (
+				latestGame &&
+				latestGame.status === 'active' &&
+				latestGame.playerO === data.uid
+			  ) {
+				setGameId(latestGameId.toString());
+				const opponent = {
+				  uid: latestGame.playerX,
+				  email:
+					data.loggedInUsers.find((u: User) => u.uid === latestGame.playerX)?.email ||
+					'',
+				  lastseen: Date.now(),
+				  gid: null,
+				};
+				setOpponent(opponent);
+				setBoard(Array(config.sizex * config.sizey).fill(null));
+				setView('game');
+			  }
+			}
+		  } catch (error) {
+			console.error('检查新游戏失败:', error);
+		  }
+		};
+	  
+		if (view === 'lobby') {
+		  const interval = setInterval(checkNewGame, 2000);
+		  return () => clearInterval(interval); // 清除定时器，避免内存泄漏
+		}
+	  }, [view, config.sizex, config.sizey]);
 
 	return (
 		<Container>

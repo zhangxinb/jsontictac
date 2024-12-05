@@ -22,6 +22,8 @@ $response = array(
 
     "uido" => isset($_SESSION["uido"]) ? $_SESSION["uido"] : null,
 
+    "games" => isset($_SESSION["games"]) ? $_SESSION["games"] : null,
+
 );
 
 header('Content-Type: application/json');

@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import KeepAlive from './KeepAlive';
 import { Container, Typography, List, ListItem, ListItemText, Button, CircularProgress, ListItemIcon, Paper } from '@mui/material';
 import { useSpring, animated } from '@react-spring/web';
 import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
-import { useSession } from './SessionContext';
 
 interface LobbyProps {
-  onStartGame: (opponent: User) => void;
+  onStartGame: (opponent: User, existingGameId?: string) => void;
 }
 
 interface User {
@@ -94,9 +92,6 @@ const Lobby: React.FC<LobbyProps> = ({ onStartGame }) => {
           </Paper>
         </animated.div>
       )}
-  
-      {/* 保活部分 */}
-      <KeepAlive />
     </Container>
   );
   

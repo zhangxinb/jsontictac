@@ -1,20 +1,54 @@
 <?php
-
 header("Access-Control-Allow-Origin: http://localhost:3000");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type"); 
 header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json");
 
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (isset($_SESSION['gameId']) && isset($_SESSION['gameStatus']) && $_SESSION['gameStatus'] === 'inProgress') {
-        $opponent = $_SESSION['opponent'];
-        echo json_encode(["status" => "inProgress", "opponent" => $opponent]);
-    } else {
-        echo json_encode(["status" => "waiting"]);
+    $gameId = (string)$_GET['gameId'] ?? null;
+    
+    if (!$gameId) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Game ID not provided'
+        ]);
+        exit;
     }
-} else {
-    echo json_encode(["status" => "error", "message" => "Invalid request"]);
+
+    // 统一转换为整数类型
+    $gameId = (int)$gameId;
+    
+    // 检查游戏是否存在于 session 中
+    if (!isset($_SESSION['games']) || !isset($_SESSION['games'][$gameId])) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Game not found',
+            'debug' => [
+                'sessionExists' => isset($_SESSION),
+                'gamesExists' => isset($_SESSION['games']),
+                'gameIdType' => gettype($gameId),
+                'gameIdValue' => $gameId,
+                'availableGames' => array_keys($_SESSION['games'] ?? []),
+                'sessionData' => $_SESSION
+            ],
+            "sessionID" => session_id(),
+        ]);
+        exit;
+    }
+    
+    $game = $_SESSION['games'][$gameId];
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'board' => $game['board'],
+            'currentTurn' => $game['currentTurn'],
+            'playerX' => $game['playerX'],
+            'playerO' => $game['playerO'],
+            'status' => $game['status']
+        ]
+    ]);
 }
 ?>
